@@ -1,6 +1,6 @@
-# GEBENGBOTZ Remote Support
+# KICRUTZ-VOID — Native Support Center
 
-Android companion + web dashboard + relay server.
+Android native companion, web dashboard, and relay server. The native app now has an Overview, Connection, and About navigation with a dark cyan theme.
 
 ## MVP capabilities
 - User-started Android connection with a visible foreground notification
