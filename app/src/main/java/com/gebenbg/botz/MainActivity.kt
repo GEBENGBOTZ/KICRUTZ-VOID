@@ -137,7 +137,7 @@ class MainActivity : Activity() {
     private fun card(block: LinearLayout.() -> Unit): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL; setPadding(dp(15), dp(15), dp(15), dp(15))
         background = rounded(panel, Color.rgb(31, 46, 65), 16)
-        block(); content.addView(this, lp(bottom = 12))
+        block()
     }
     private fun metric(title: String, value: String, detail: String) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
