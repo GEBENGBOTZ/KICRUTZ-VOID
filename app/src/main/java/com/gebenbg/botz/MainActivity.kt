@@ -2,160 +2,275 @@ package com.gebenbg.botz
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.LinearGradient
+import android.graphics.Shader
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.widget.*
+import android.graphics.drawable.GradientDrawable
+import android.widget.FrameLayout
 
 class MainActivity : Activity() {
-    private val bg = Color.rgb(7, 12, 22)
-    private val panel = Color.rgb(15, 23, 39)
+    private val bg = Color.rgb(3, 7, 18)
+    private val panel = Color.rgb(8, 16, 30)
+    private val border = Color.rgb(24, 48, 67)
     private val cyan = Color.rgb(34, 211, 238)
-    private val muted = Color.rgb(148, 163, 184)
-    private lateinit var root: LinearLayout
+    private val purple = Color.rgb(168, 85, 247)
+    private val crimson = Color.rgb(251, 113, 133)
+    private val green = Color.rgb(52, 211, 153)
+    private val muted = Color.rgb(100, 116, 139)
     private lateinit var content: LinearLayout
-    private lateinit var statusLabel: TextView
+    private lateinit var statusText: TextView
     private lateinit var urlField: EditText
     private lateinit var codeField: EditText
-    private lateinit var idField: EditText
+    private lateinit var deviceField: EditText
+    private var selectedTab = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = bg
+        window.navigationBarColor = bg
+        window.decorView.systemUiVisibility = 0
         buildShell()
-        showHome()
+        showPage(0)
     }
 
     private fun buildShell() {
-        root = LinearLayout(this).apply {
+        val frame = FrameLayout(this)
+        frame.addView(CyberBackground(this), FrameLayout.LayoutParams(-1, -1))
+        val shell = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(bg)
-            setPadding(dp(18), dp(20), dp(18), dp(12))
+            setPadding(dp(18), dp(18), dp(18), dp(8))
         }
         val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        val logo = TextView(this).apply {
-            text = "KV"; textSize = 18f; typeface = Typeface.DEFAULT_BOLD; setTextColor(cyan)
-            gravity = Gravity.CENTER; background = rounded(Color.rgb(10, 45, 58), cyan, 12); setPadding(dp(14), dp(10), dp(14), dp(10))
+        val mark = TextView(this).apply {
+            text = "KV"; textSize = 17f; typeface = mono(true); gravity = Gravity.CENTER
+            setTextColor(cyan); background = rounded(Color.rgb(5, 31, 43), cyan, 12)
+            setPadding(dp(13), dp(11), dp(13), dp(11))
         }
-        header.addView(logo)
-        val titleCol = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0) }
-        titleCol.addView(label("KICRUTZ-VOID", 17f, Color.WHITE, true))
-        titleCol.addView(label("NATIVE SUPPORT CENTER · v1.0", 9f, muted, false))
-        header.addView(titleCol, LinearLayout.LayoutParams(0, -2, 1f))
-        val badge = label("● READY", 10f, cyan, true); header.addView(badge)
-        root.addView(header)
-        val divider = View(this).apply { setBackgroundColor(Color.rgb(31, 46, 65)) }
-        root.addView(divider, LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(16); bottomMargin = dp(14) })
+        header.addView(mark)
+        val heading = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(11), 0, 0, 0) }
+        heading.addView(txt("KICRUTZ-VOID", 16f, Color.WHITE, true, true))
+        heading.addView(txt("REMOTE DEVICE CONTROL CENTER", 8f, muted, true, true))
+        header.addView(heading, LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(txt("v3.7", 10f, purple, true, true).apply {
+            background = rounded(Color.rgb(25, 12, 40), Color.rgb(90, 45, 130), 8)
+            setPadding(dp(9), dp(6), dp(9), dp(6))
+        })
+        shell.addView(header)
+        val line = View(this).apply { setBackgroundColor(border) }
+        shell.addView(line, LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(15); bottomMargin = dp(13) })
+
+        val connectionStrip = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = rounded(Color.rgb(5, 13, 24), border, 12)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+        }
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        row.addView(txt("RELAY", 9f, muted, true, true))
+        row.addView(txt("  •  ", 10f, muted, true))
+        statusText = txt("OFFLINE", 10f, crimson, true, true)
+        row.addView(statusText)
+        row.addView(txt("                         ", 8f, muted))
+        row.addView(txt("TARGET", 9f, muted, true, true))
+        row.addView(txt("  LOCAL DEVICE", 9f, cyan, true, true))
+        connectionStrip.addView(row)
+        val connectBtn = miniButton("CONFIGURE RELAY  ↗", cyan)
+        connectBtn.setOnClickListener { showPage(1) }
+        connectionStrip.addView(connectBtn, LinearLayout.LayoutParams(-1, dp(34)).apply { topMargin = dp(9) })
+        shell.addView(connectionStrip)
+
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val scroll = ScrollView(this).apply { addView(content) }
-        root.addView(scroll, LinearLayout.LayoutParams(0, 0, 1f))
-        val nav = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, dp(10), 0, dp(4)) }
-        listOf("Overview", "Connection", "About").forEachIndexed { i, name ->
-            val b = Button(this).apply {
-                text = name; textSize = 11f; setTextColor(if (i == 0) cyan else muted)
-                setBackgroundColor(Color.TRANSPARENT); isAllCaps = false
-                setOnClickListener { when (i) { 0 -> showHome(); 1 -> showConnection(); else -> showAbout() } }
-            }
-            nav.addView(b, LinearLayout.LayoutParams(0, dp(44), 1f))
+        val scroll = ScrollView(this).apply {
+            isFillViewport = false
+            addView(content)
         }
-        root.addView(nav)
-        setContentView(root)
+        shell.addView(scroll, LinearLayout.LayoutParams(0, 0, 1f).apply { topMargin = dp(12) })
+
+        val nav = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = rounded(Color.rgb(5, 12, 23), border, 14)
+            setPadding(dp(4), dp(5), dp(4), dp(5))
+        }
+        val navNames = listOf("UTAMA", "CLIP", "FILE", "NOTIF")
+        val navIcons = listOf("⌂", "▣", "▤", "◉")
+        navNames.forEachIndexed { index, name ->
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+                setPadding(0, dp(5), 0, dp(5))
+                setOnClickListener { showPage(index) }
+            }
+            item.addView(txt(navIcons[index], 17f, if (index == selectedTab) cyan else muted, true, true))
+            item.addView(txt(name, 8f, if (index == selectedTab) cyan else muted, true, true))
+            nav.addView(item, LinearLayout.LayoutParams(0, dp(48), 1f))
+        }
+        shell.addView(nav, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(9) })
+        frame.addView(shell, FrameLayout.LayoutParams(-1, -1))
+        setContentView(frame)
+    }
+
+    private fun showPage(page: Int) {
+        selectedTab = page
+        content.removeAllViews()
+        when (page) {
+            0 -> showHome()
+            1 -> showClipInfo()
+            2 -> showFileInfo()
+            3 -> showNotifInfo()
+            else -> showHome()
+        }
     }
 
     private fun showHome() {
-        content.removeAllViews()
         content.addView(card {
-            addView(label("DEVICE SUPPORT", 10f, muted, true))
-            addView(label("Connection status", 20f, Color.WHITE, true), lp(top = 8))
-            statusLabel = label("● DISCONNECTED", 13f, Color.rgb(251, 113, 133), true)
-            addView(statusLabel, lp(top = 8))
-            addView(label("Koneksi hanya berjalan saat kamu menekan Connect. Status perangkat yang dibagikan terbatas pada model, versi Android, dan baterai.", 12f, muted), lp(top = 12))
+            addView(txt("SYSTEM OVERVIEW  /  01", 9f, cyan, true, true))
+            addView(txt("Remote Support\nDashboard", 24f, Color.WHITE, true), lp(top = 8))
+            addView(txt("Monitor status koneksi perangkat secara transparan.", 11f, muted), lp(top = 6))
+            val status = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                background = rounded(Color.rgb(26, 10, 22), Color.rgb(90, 35, 50), 9)
+                setPadding(dp(10), dp(8), dp(10), dp(8))
+            }
+            status.addView(txt("●", 12f, crimson, true))
+            status.addView(txt("  DISCONNECTED", 10f, crimson, true, true))
+            status.addView(txt("   ·   waiting for session", 9f, muted, true))
+            addView(status, lp(top = 14))
         })
         content.addView(card {
-            addView(label("QUICK STATUS", 10f, muted, true))
-            val row = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
-            row.addView(metric("Battery", "—", "Persentase"), LinearLayout.LayoutParams(0, -2, 1f))
-            row.addView(metric("Device", "Local", "Perangkat ini"), LinearLayout.LayoutParams(0, -2, 1f))
-            row.addView(metric("Privacy", "ON", "Kontrol pengguna"), LinearLayout.LayoutParams(0, -2, 1f))
-            addView(row, lp(top = 14))
+            addView(txt("QUICK METRICS", 9f, muted, true, true))
+            val metrics = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
+            metrics.addView(metric("SESSION", "OFF", crimson, "No active link"), LinearLayout.LayoutParams(0, -2, 1f))
+            metrics.addView(metric("DEVICE", "LOCAL", cyan, "This device"), LinearLayout.LayoutParams(0, -2, 1f))
+            metrics.addView(metric("PRIVACY", "LOCKED", green, "User consent"), LinearLayout.LayoutParams(0, -2, 1f))
+            addView(metrics, lp(top = 12))
         })
         content.addView(card {
-            addView(label("ACTIONS", 10f, muted, true))
-            val connect = actionButton("Configure support connection", cyan)
-            connect.setOnClickListener { showConnection() }
-            addView(connect, lp(top = 12))
-            val disconnect = actionButton("Disconnect service", Color.rgb(251, 113, 133))
-            disconnect.setOnClickListener { stopService(Intent(this@MainActivity, SupportService::class.java)); statusLabel.text = "● DISCONNECTED"; statusLabel.setTextColor(Color.rgb(251,113,133)); toast("Service dihentikan") }
-            addView(disconnect, lp(top = 8))
+            addView(txt("CONTROL PANEL", 9f, muted, true, true))
+            addView(txt("Connection setup", 16f, Color.WHITE, true), lp(top = 7))
+            addView(txt("Configure relay URL and pairing details to start an explicitly approved support session.", 11f, muted), lp(top = 5))
+            val b = actionButton("OPEN CONNECTION SETTINGS", cyan)
+            b.setOnClickListener { showPage(1) }
+            addView(b, lp(top = 12))
         })
         content.addView(card {
-            addView(label("PRIVACY & SAFETY", 10f, muted, true))
-            addView(label("• Koneksi transparan dengan notifikasi foreground.\n• Tidak mengakses kamera, mikrofon, clipboard, file pribadi, atau kendali layar.\n• Gunakan hanya pada perangkat milikmu atau perangkat yang pemiliknya menyetujui sesi.", 12f, Color.rgb(203,213,225)), lp(top = 10))
+            addView(txt("SECURITY NOTICE", 9f, crimson, true, true))
+            addView(txt("Session hanya aktif setelah tindakan Connect. Aplikasi tidak mengambil clipboard, file pribadi, kamera, mikrofon, atau mengendalikan layar.", 11f, Color.rgb(190, 205, 220)), lp(top = 8))
         })
     }
 
     private fun showConnection() {
-        content.removeAllViews()
         content.addView(card {
-            addView(label("SUPPORT SERVER", 10f, muted, true))
-            urlField = field("WSS URL (contoh: wss://server.example/ws)")
-            codeField = field("Pairing code")
-            codeField.inputType = 129
-            idField = field("Device label / ID")
-            addView(urlField, lp(top = 12)); addView(codeField, lp(top = 8)); addView(idField, lp(top = 8))
-            addView(label("Pairing code diperlukan untuk menghubungkan perangkat. Jangan bagikan kode ini.", 11f, muted), lp(top = 10))
-            val start = actionButton("Connect", cyan)
-            start.setOnClickListener {
+            addView(txt("RELAY CONFIGURATION  /  02", 9f, cyan, true, true))
+            addView(txt("Connect to support relay", 20f, Color.WHITE, true), lp(top = 8))
+            addView(txt("Gunakan server WSS terenkripsi dan kode pairing yang diberikan secara aman.", 11f, muted), lp(top = 6))
+            urlField = field("wss://relay.example/ws")
+            codeField = field("Pairing code").apply { inputType = 129 }
+            deviceField = field("Device label")
+            addView(urlField, lp(top = 14)); addView(codeField, lp(top = 8)); addView(deviceField, lp(top = 8))
+            val connect = actionButton("START SESSION", cyan)
+            connect.setOnClickListener {
                 val url = urlField.text.toString().trim()
                 val code = codeField.text.toString().trim()
-                val device = idField.text.toString().trim()
-                if (url.isBlank() || code.isBlank() || device.isBlank()) { toast("Lengkapi semua kolom"); return@setOnClickListener }
-                if (!url.startsWith("wss://")) { toast("Gunakan koneksi WSS yang terenkripsi"); return@setOnClickListener }
+                val device = deviceField.text.toString().trim()
+                if (url.isBlank() || code.isBlank() || device.isBlank()) { toast("Isi semua kolom terlebih dahulu"); return@setOnClickListener }
+                if (!url.startsWith("wss://")) { toast("Relay wajib menggunakan WSS"); return@setOnClickListener }
                 val intent = Intent(this@MainActivity, SupportService::class.java).apply {
                     putExtra("url", url); putExtra("code", code); putExtra("id", device)
                 }
                 startForegroundService(intent)
-                statusLabel.text = "● CONNECTING"; statusLabel.setTextColor(cyan)
-                toast("Permintaan koneksi dimulai")
-                showHome()
+                statusText.text = "CONNECTING"; statusText.setTextColor(cyan)
+                toast("Sesi dimulai — periksa notifikasi layanan")
+                showPage(0)
             }
-            addView(start, lp(top = 14))
+            addView(connect, lp(top = 14))
+            val stop = actionButton("STOP SESSION", crimson)
+            stop.setOnClickListener {
+                stopService(Intent(this@MainActivity, SupportService::class.java))
+                statusText.text = "OFFLINE"; statusText.setTextColor(crimson)
+                toast("Sesi dihentikan")
+            }
+            addView(stop, lp(top = 8))
+        })
+        content.addView(card {
+            addView(txt("PAIRING CHECKLIST", 9f, muted, true, true))
+            addView(txt("• Pastikan pemilik perangkat menyetujui sesi.\n• Jangan membagikan pairing code.\n• Putuskan sesi jika tidak lagi diperlukan.", 11f, Color.rgb(190, 205, 220)), lp(top = 8))
         })
     }
 
-    private fun showAbout() {
-        content.removeAllViews()
+    private fun showClipInfo() {
         content.addView(card {
-            addView(label("ABOUT KICRUTZ-VOID", 10f, muted, true))
-            addView(label("Native Android support utility", 20f, Color.WHITE, true), lp(top = 8))
-            addView(label("Versi 1.0\nAndroid API 23+\nJava 17 · Kotlin JVM 17\n\nAplikasi ini dibuat untuk status perangkat yang transparan dan sesi dukungan yang disetujui pemilik perangkat.", 13f, Color.rgb(203,213,225)), lp(top = 10))
+            addView(txt("CLIPBOARD MODULE  /  03", 9f, cyan, true, true))
+            addView(txt("Clipboard access disabled", 18f, Color.WHITE, true), lp(top = 8))
+            addView(txt("Untuk melindungi data sensitif, aplikasi ini tidak membaca atau mengirim clipboard perangkat. Tab ini hanya menampilkan status modul.", 12f, muted), lp(top = 8))
+            addView(txt("MODULE STATUS   •   LOCKED", 10f, green, true, true), lp(top = 14))
+        })
+    }
+
+    private fun showFileInfo() {
+        content.addView(card {
+            addView(txt("FILE MODULE  /  04", 9f, cyan, true, true))
+            addView(txt("Private files are not accessible", 18f, Color.WHITE, true), lp(top = 8))
+            addView(txt("Tidak ada browser file jarak jauh. Pengguna dapat mengelola file lokal melalui aplikasi file Android sendiri.", 12f, muted), lp(top = 8))
+            addView(txt("MODULE STATUS   •   DISABLED", 10f, green, true, true), lp(top = 14))
+        })
+    }
+
+    private fun showNotifInfo() {
+        content.addView(card {
+            addView(txt("NOTIFICATION MODULE  /  05", 9f, cyan, true, true))
+            addView(txt("Session notifications", 18f, Color.WHITE, true), lp(top = 8))
+            addView(txt("Notifikasi sistem Android akan digunakan untuk memberi tahu saat layanan dukungan berjalan atau dihentikan.", 12f, muted), lp(top = 8))
+            addView(txt("TRANSPARENCY   •   ENABLED", 10f, green, true, true), lp(top = 14))
+        })
+        content.addView(card {
+            addView(txt("ACTIVITY LOG", 9f, muted, true, true))
+            addView(txt("No activity recorded in this screen.", 11f, muted), lp(top = 8))
         })
     }
 
     private fun card(block: LinearLayout.() -> Unit): LinearLayout = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL; setPadding(dp(15), dp(15), dp(15), dp(15))
-        background = rounded(panel, Color.rgb(31, 46, 65), 16)
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(14), dp(14), dp(14), dp(14))
+        background = rounded(panel, border, 15)
         block()
     }
-    private fun metric(title: String, value: String, detail: String) = LinearLayout(this).apply {
+
+    private fun metric(name: String, value: String, accent: Int, caption: String) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        addView(label(title, 10f, muted)); addView(label(value, 18f, Color.WHITE, true), lp(top = 6)); addView(label(detail, 9f, muted), lp(top = 3))
+        background = rounded(Color.rgb(5, 12, 22), border, 10)
+        setPadding(dp(9), dp(10), dp(8), dp(9))
+        addView(txt(name, 8f, muted, true, true))
+        addView(txt(value, 15f, accent, true, true), lp(top = 6))
+        addView(txt(caption, 8f, muted), lp(top = 3))
     }
+
     private fun field(hintText: String) = EditText(this).apply {
-        hint = hintText; textSize = 13f; setTextColor(Color.WHITE); setHintTextColor(muted)
+        hint = hintText; textSize = 12f; setTextColor(Color.WHITE); setHintTextColor(muted)
         setSingleLine(true); setPadding(dp(12), dp(11), dp(12), dp(11))
-        background = rounded(Color.rgb(5, 10, 18), Color.rgb(40, 55, 74), 10)
+        background = rounded(Color.rgb(3, 8, 16), border, 10)
     }
+
     private fun actionButton(text: String, accent: Int) = Button(this).apply {
-        this.text = text; textSize = 12f; isAllCaps = false; setTextColor(accent)
-        background = rounded(Color.rgb(9, 24, 37), accent, 10)
+        this.text = text; textSize = 10f; isAllCaps = false; typeface = mono(true)
+        setTextColor(accent); background = rounded(Color.rgb(5, 20, 31), accent, 10)
     }
-    private fun label(text: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
+
+    private fun miniButton(text: String, accent: Int) = Button(this).apply {
+        this.text = text; textSize = 9f; isAllCaps = false; typeface = mono(true)
+        setTextColor(accent); background = rounded(Color.rgb(4, 18, 28), accent, 8)
+    }
+
+    private fun txt(text: String, size: Float, color: Int, bold: Boolean = false, monospace: Boolean = false) = TextView(this).apply {
         this.text = text; textSize = size; setTextColor(color)
-        if (bold) typeface = Typeface.DEFAULT_BOLD
+        typeface = if (monospace) mono(bold) else if (bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
     }
+
+    private fun mono(bold: Boolean) = Typeface.create("monospace", if (bold) Typeface.BOLD else Typeface.NORMAL)
     private fun rounded(fill: Int, stroke: Int, radius: Int) = GradientDrawable().apply {
         setColor(fill); setStroke(dp(1), stroke); cornerRadius = dp(radius).toFloat()
     }
@@ -164,4 +279,25 @@ class MainActivity : Activity() {
     }
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+
+    private inner class CyberBackground(context: MainActivity) : View(context) {
+        private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(18, 34, 211, 238); strokeWidth = dp(1).toFloat() }
+        private val scanPaint = Paint().apply { color = Color.argb(9, 160, 190, 220) }
+        private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            canvas.drawColor(bg)
+            glowPaint.shader = LinearGradient(0f, 0f, width.toFloat(), height.toFloat(),
+                intArrayOf(Color.argb(45, 0, 170, 210), Color.argb(5, 70, 40, 130), Color.TRANSPARENT),
+                null, Shader.TileMode.CLAMP)
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), glowPaint)
+            val spacing = dp(22).toFloat()
+            var x = 0f
+            while (x < width) { canvas.drawLine(x, 0f, x, height.toFloat(), gridPaint); x += spacing }
+            var y = 0f
+            while (y < height) { canvas.drawLine(0f, y, width.toFloat(), y, gridPaint); y += spacing }
+            var sy = 0f
+            while (sy < height) { canvas.drawRect(0f, sy, width.toFloat(), sy + dp(1), scanPaint); sy += dp(4) }
+        }
+    }
 }
