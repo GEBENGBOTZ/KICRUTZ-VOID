@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.widget.*
+import android.media.MediaPlayer
 import android.graphics.drawable.GradientDrawable
 import android.widget.FrameLayout
 
@@ -30,18 +31,28 @@ class MainActivity : Activity() {
     private lateinit var codeField: EditText
     private lateinit var deviceField: EditText
     private var selectedTab = 0
+    private lateinit var backgroundVideo: VideoView
+    private var videoPlayer: MediaPlayer? = null
+    private var videoSoundEnabled = false
+    private var videoUrl = ""
+    private val prefs by lazy { getSharedPreferences("visual_settings", MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = bg
         window.navigationBarColor = bg
         window.decorView.systemUiVisibility = 0
+        videoSoundEnabled = prefs.getBoolean("video_sound", false)
+        videoUrl = prefs.getString("video_url", "") ?: ""
         buildShell()
+        configureBackgroundVideo()
         showPage(0)
     }
 
     private fun buildShell() {
         val frame = FrameLayout(this)
+        backgroundVideo = VideoView(this)
+        frame.addView(backgroundVideo, FrameLayout.LayoutParams(-1, -1))
         frame.addView(CyberBackground(this), FrameLayout.LayoutParams(-1, -1))
         val shell = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -97,8 +108,8 @@ class MainActivity : Activity() {
             background = rounded(Color.rgb(5, 12, 23), border, 14)
             setPadding(dp(4), dp(5), dp(4), dp(5))
         }
-        val navNames = listOf("UTAMA", "CLIP", "FILE", "NOTIF")
-        val navIcons = listOf("⌂", "▣", "▤", "◉")
+        val navNames = listOf("UTAMA", "CLIP", "FILE", "NOTIF", "SETTING")
+        val navIcons = listOf("⌂", "▣", "▤", "◉", "⚙")
         navNames.forEachIndexed { index, name ->
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
@@ -122,6 +133,7 @@ class MainActivity : Activity() {
             1 -> showClipInfo()
             2 -> showFileInfo()
             3 -> showNotifInfo()
+            4 -> showSettings()
             else -> showHome()
         }
     }
@@ -220,6 +232,78 @@ class MainActivity : Activity() {
         })
     }
 
+    private fun showSettings() {
+        content.addView(card {
+            addView(txt("VISUAL SETTINGS  /  06", 9f, cyan, true, true))
+            addView(txt("Video background", 18f, Color.WHITE, true), lp(top = 8))
+            addView(txt("URL video MP4 yang dapat diakses publik (HTTPS). Video akan diputar berulang di belakang panel hologram.", 11f, muted), lp(top = 6))
+            val url = field("https://example.com/background.mp4")
+            url.setText(videoUrl)
+            addView(url, lp(top = 12))
+            val save = actionButton("SAVE VIDEO URL", cyan)
+            save.setOnClickListener {
+                videoUrl = url.text.toString().trim()
+                prefs.edit().putString("video_url", videoUrl).apply()
+                configureBackgroundVideo()
+                toast(if (videoUrl.isBlank()) "Background video dimatikan" else "URL video disimpan")
+            }
+            addView(save, lp(top = 8))
+            val sound = Switch(this@MainActivity).apply {
+                text = "  SOUND VIDEO"
+                textSize = 11f
+                typeface = mono(true)
+                setTextColor(Color.WHITE)
+                isChecked = videoSoundEnabled
+                setOnCheckedChangeListener { _, checked ->
+                    videoSoundEnabled = checked
+                    prefs.edit().putBoolean("video_sound", checked).apply()
+                    videoPlayer?.setVolume(if (checked) 1f else 0f, if (checked) 1f else 0f)
+                    toast(if (checked) "Suara video ON" else "Suara video OFF")
+                }
+            }
+            addView(sound, lp(top = 12))
+            addView(txt("DEFAULT: MUTED  •  LOOP: ON  •  VIDEO BEHIND UI", 9f, green, true, true), lp(top = 10))
+        })
+        content.addView(card {
+            addView(txt("HOLOGRAM LAYER", 9f, purple, true, true))
+            addView(txt("Panel UI semi-transparan, grid cyan, scanline, dan aksen neon tetap tampil di atas video.", 11f, muted), lp(top = 7))
+        })
+    }
+
+    private fun configureBackgroundVideo() {
+        if (videoUrl.isBlank() || !videoUrl.startsWith("https://")) {
+            backgroundVideo.stopPlayback()
+            backgroundVideo.setBackgroundColor(Color.TRANSPARENT)
+            videoPlayer = null
+            return
+        }
+        try {
+            backgroundVideo.setVideoPath(videoUrl)
+            backgroundVideo.setOnPreparedListener { mp ->
+                videoPlayer = mp
+                mp.isLooping = true
+                mp.setVolume(if (videoSoundEnabled) 1f else 0f, if (videoSoundEnabled) 1f else 0f)
+                backgroundVideo.start()
+            }
+            backgroundVideo.setOnErrorListener { _, _, _ ->
+                toast("Video gagal dimuat. Periksa URL MP4.")
+                true
+            }
+        } catch (_: Exception) {
+            toast("URL video tidak valid")
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (::backgroundVideo.isInitialized && backgroundVideo.isPlaying) backgroundVideo.pause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::backgroundVideo.isInitialized && videoPlayer != null) backgroundVideo.start()
+    }
+
     private fun showNotifInfo() {
         content.addView(card {
             addView(txt("NOTIFICATION MODULE  /  05", 9f, cyan, true, true))
@@ -236,7 +320,7 @@ class MainActivity : Activity() {
     private fun card(block: LinearLayout.() -> Unit): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(14), dp(14), dp(14), dp(14))
-        background = rounded(panel, border, 15)
+        background = rounded(Color.argb(178, 8, 16, 30), border, 15)
         block()
     }
 
@@ -286,9 +370,9 @@ class MainActivity : Activity() {
         private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
-            canvas.drawColor(bg)
+            canvas.drawColor(Color.argb(105, 3, 7, 18))
             glowPaint.shader = LinearGradient(0f, 0f, width.toFloat(), height.toFloat(),
-                intArrayOf(Color.argb(45, 0, 170, 210), Color.argb(5, 70, 40, 130), Color.TRANSPARENT),
+                intArrayOf(Color.argb(35, 0, 170, 210), Color.argb(4, 70, 40, 130), Color.TRANSPARENT),
                 null, Shader.TileMode.CLAMP)
             canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), glowPaint)
             val spacing = dp(22).toFloat()
